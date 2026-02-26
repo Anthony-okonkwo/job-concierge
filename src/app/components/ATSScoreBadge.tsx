@@ -1,19 +1,21 @@
 import { motion } from "motion/react";
 
 interface ATSScoreBadgeProps {
-  score: number;
+  score: number | string; // <-- Now accepts a string like "..."
   className?: string;
 }
 
 export function ATSScoreBadge({ score, className = "" }: ATSScoreBadgeProps) {
-  const getScoreColor = (score: number) => {
+  const getScoreColor = (score: number | string) => {
+    if (typeof score === "string") return "bg-gray-400"; // Gray for missing data
     if (score >= 93) return "bg-emerald-500";
     if (score >= 80) return "bg-green-500";
     if (score >= 70) return "bg-yellow-500";
     return "bg-orange-500";
   };
 
-  const getScoreTextColor = (score: number) => {
+  const getScoreTextColor = (score: number | string) => {
+    if (typeof score === "string") return "text-gray-600"; // Gray text for missing data
     if (score >= 93) return "text-emerald-700";
     if (score >= 80) return "text-green-700";
     if (score >= 70) return "text-yellow-700";

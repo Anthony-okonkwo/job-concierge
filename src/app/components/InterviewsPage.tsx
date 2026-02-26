@@ -8,11 +8,11 @@ import {
   Users,
   FileText,
   CheckCircle,
-  AlertCircle,
 } from "lucide-react";
 import { Button } from "./ui/button";
 
 export function InterviewsPage() {
+  // Keeping exactly ONE dummy record as the golden standard for testing consistency
   const upcomingInterviews = [
     {
       id: "INT001",
@@ -27,34 +27,10 @@ export function InterviewsPage() {
       notes: "Focus on system design and architecture",
       meetingLink: "https://zoom.us/j/123456789",
       preparationStatus: "Ready",
-    },
-    {
-      id: "INT002",
-      jobTitle: "Lead Developer",
-      company: "Finance Inc",
-      date: "Feb 20, 2026",
-      time: "10:00 AM - 11:30 AM CST",
-      type: "phone",
-      interviewers: ["Mike Chen"],
-      stage: "HR Screening",
-      notes: "Discuss salary expectations and availability",
-      preparationStatus: "In Progress",
-    },
-    {
-      id: "INT003",
-      jobTitle: "Full Stack Developer",
-      company: "StartupXYZ",
-      date: "Feb 22, 2026",
-      time: "3:00 PM - 4:00 PM EST",
-      type: "onsite",
-      location: "123 Tech Street, San Francisco, CA",
-      interviewers: ["Emily Davis", "David Kim", "Lisa Wong"],
-      stage: "Final Round",
-      notes: "Panel interview with team leads",
-      preparationStatus: "Pending",
-    },
+    }
   ];
 
+  // Keeping exactly ONE past interview for layout testing
   const pastInterviews = [
     {
       id: "INT004",
@@ -64,21 +40,12 @@ export function InterviewsPage() {
       stage: "Technical Round",
       outcome: "Offer Extended",
       feedback: "Excellent technical skills and communication",
-    },
-    {
-      id: "INT005",
-      jobTitle: "Frontend Engineer",
-      company: "Digital Agency",
-      date: "Feb 10, 2026",
-      stage: "HR Screening",
-      outcome: "Moved to Next Round",
-      feedback: "Strong cultural fit, proceeding to technical assessment",
-    },
+    }
   ];
 
   const stats = [
     { label: "Upcoming", value: upcomingInterviews.length, color: "text-[#0275D8]" },
-    { label: "This Week", value: 2, color: "text-green-600" },
+    { label: "This Week", value: 1, color: "text-green-600" },
     { label: "Total Completed", value: pastInterviews.length, color: "text-gray-600" },
   ];
 
@@ -103,7 +70,7 @@ export function InterviewsPage() {
       </motion.div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {stats.map((stat, idx) => (
           <motion.div
             key={idx}
@@ -168,12 +135,6 @@ export function InterviewsPage() {
                         {interview.platform && ` (${interview.platform})`}
                       </span>
                     </div>
-                    {interview.location && (
-                      <div className="flex items-center gap-2 text-sm text-gray-700">
-                        <MapPin className="w-4 h-4 text-[#0275D8]" />
-                        <span className="truncate">{interview.location}</span>
-                      </div>
-                    )}
                   </div>
 
                   <div className="mb-3">
@@ -199,18 +160,18 @@ export function InterviewsPage() {
                 </div>
 
                 {/* Right: Actions */}
-                <div className="flex flex-row lg:flex-col gap-2 lg:w-48">
+                <div className="flex flex-col gap-2 lg:w-48 pt-4 lg:pt-0">
                   {interview.meetingLink && (
-                    <Button className="flex-1 lg:flex-none bg-gradient-to-r from-[#0275D8] to-[#00C2D1] text-white">
+                    <Button className="w-full bg-gradient-to-r from-[#0275D8] to-[#00C2D1] text-white">
                       <Video className="w-4 h-4 mr-2" />
                       Join Meeting
                     </Button>
                   )}
-                  <Button variant="outline" className="flex-1 lg:flex-none">
+                  <Button variant="outline" className="w-full">
                     <Calendar className="w-4 h-4 mr-2" />
                     Add to Calendar
                   </Button>
-                  <Button variant="outline" className="flex-1 lg:flex-none">
+                  <Button variant="outline" className="w-full">
                     <FileText className="w-4 h-4 mr-2" />
                     Prep Guide
                   </Button>
@@ -237,7 +198,7 @@ export function InterviewsPage() {
               transition={{ delay: 0.5 + idx * 0.1 }}
               className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-start gap-3 mb-2">
                     <div className="w-10 h-10 bg-gradient-to-br from-[#0275D8] to-[#00C2D1] rounded-lg flex items-center justify-center flex-shrink-0">
@@ -249,7 +210,7 @@ export function InterviewsPage() {
                       <p className="text-xs text-gray-500 mt-1">{interview.date}</p>
                     </div>
                   </div>
-                  <div className="ml-13 space-y-2">
+                  <div className="ml-13 space-y-2 mt-4 sm:mt-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-600">Stage:</span>
                       <span className="text-sm font-medium text-gray-900">{interview.stage}</span>
@@ -263,10 +224,12 @@ export function InterviewsPage() {
                     </div>
                   </div>
                 </div>
-                <Button variant="outline" size="sm">
-                  <FileText className="w-4 h-4 mr-2" />
-                  View Details
-                </Button>
+                <div className="flex-shrink-0">
+                   <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                     <FileText className="w-4 h-4 mr-2" />
+                     View Details
+                   </Button>
+                </div>
               </div>
             </motion.div>
           ))}

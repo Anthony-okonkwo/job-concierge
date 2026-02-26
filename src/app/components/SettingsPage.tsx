@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import {
   User,
@@ -9,6 +10,8 @@ import {
   Mail,
   Smartphone,
   Save,
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -18,6 +21,59 @@ import { PlanBadge } from "./PlanBadge";
 import { Separator } from "./ui/separator";
 
 export function SettingsPage() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [userData, setUserData] = useState<any>(null);
+  const API_BASE_URL = import.meta.env.VITE_API_URL;
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/test-client-123`);
+        if (!response.ok) throw new Error("Wahala fetching settings data");
+        
+        const data = await response.json();
+        setUserData({
+          name: data.user.name,
+          email: `${data.user.name.split(' ')[0].toLowerCase()}@cyberpurview.com`, // Mocking email for now
+          planName: data.user.planName,
+          totalQuota: data.user.totalQuota,
+          remainingQuota: data.metrics.remainingQuota.value,
+          applicationsUsed: data.metrics.applicationsSubmitted.value
+        });
+      } catch (error) {
+        console.error("Failed to load settings:", error);
+        setHasError(true);
+        
+        // GRACEFUL FALLBACK
+        setUserData({
+          name: "...",
+          email: "...",
+          planName: "launchpad",
+          totalQuota: 0,
+          remainingQuota: 0,
+          applicationsUsed: 0
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen text-[#0A2342]">
+        <Loader2 className="w-10 h-10 animate-spin mb-4 text-[#0275D8]" />
+        <p className="text-lg font-medium">Loading account settings...</p>
+      </div>
+    );
+  }
+
+  // Split name for First/Last inputs (assuming First Last format)
+  const firstName = userData.name !== "..." ? userData.name.split(" ")[0] : "...";
+  const lastName = userData.name !== "..." ? userData.name.split(" ").slice(1).join(" ") : "...";
+
   const settingsSections = [
     {
       id: "profile",
@@ -28,26 +84,26 @@ export function SettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>First Name</Label>
-              <Input defaultValue="John" />
+              <Input defaultValue={firstName} disabled={hasError} />
             </div>
             <div>
               <Label>Last Name</Label>
-              <Input defaultValue="Doe" />
+              <Input defaultValue={lastName} disabled={hasError} />
             </div>
           </div>
           <div>
             <Label>Email Address</Label>
-            <Input type="email" defaultValue="john.doe@email.com" />
+            <Input type="email" defaultValue={userData.email} disabled={hasError} />
           </div>
           <div>
             <Label>Phone Number</Label>
-            <Input type="tel" defaultValue="+1 (555) 123-4567" />
+            <Input type="tel" defaultValue="+234 (0) 800 000 0000" disabled={hasError} />
           </div>
           <div>
             <Label>LinkedIn Profile</Label>
-            <Input defaultValue="linkedin.com/in/johndoe" />
+            <Input defaultValue={`linkedin.com/in/${firstName.toLowerCase()}`} disabled={hasError} />
           </div>
-          <Button className="bg-gradient-to-r from-[#0275D8] to-[#00C2D1] text-white">
+          <Button disabled={hasError} className="bg-gradient-to-r from-[#0275D8] to-[#00C2D1] text-white">
             <Save className="w-4 h-4 mr-2" />
             Save Changes
           </Button>
@@ -65,17 +121,17 @@ export function SettingsPage() {
             <div className="space-y-3">
               <div>
                 <Label>Current Password</Label>
-                <Input type="password" />
+                <Input type="password" disabled={hasError} />
               </div>
               <div>
                 <Label>New Password</Label>
-                <Input type="password" />
+                <Input type="password" disabled={hasError} />
               </div>
               <div>
                 <Label>Confirm New Password</Label>
-                <Input type="password" />
+                <Input type="password" disabled={hasError} />
               </div>
-              <Button variant="outline">Update Password</Button>
+              <Button variant="outline" disabled={hasError}>Update Password</Button>
             </div>
           </div>
           <Separator />
@@ -86,7 +142,7 @@ export function SettingsPage() {
                 <p className="font-medium text-gray-900">Enable 2FA</p>
                 <p className="text-sm text-gray-600">Add an extra layer of security</p>
               </div>
-              <Switch />
+              <Switch disabled={hasError} />
             </div>
           </div>
           <Separator />
@@ -98,14 +154,14 @@ export function SettingsPage() {
                   <p className="font-medium text-gray-900">Profile Visibility</p>
                   <p className="text-sm text-gray-600">Allow recruiters to find you</p>
                 </div>
-                <Switch defaultChecked />
+                <Switch defaultChecked disabled={hasError} />
               </div>
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                 <div>
                   <p className="font-medium text-gray-900">Share Analytics</p>
                   <p className="text-sm text-gray-600">Help improve our service</p>
                 </div>
-                <Switch defaultChecked />
+                <Switch defaultChecked disabled={hasError} />
               </div>
             </div>
           </div>
@@ -133,7 +189,7 @@ export function SettingsPage() {
                     <p className="font-medium text-gray-900">{item.label}</p>
                     <p className="text-sm text-gray-600">{item.desc}</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch defaultChecked disabled={hasError} />
                 </div>
               ))}
             </div>
@@ -151,7 +207,7 @@ export function SettingsPage() {
                     <p className="font-medium text-gray-900">{item.label}</p>
                     <p className="text-sm text-gray-600">{item.desc}</p>
                   </div>
-                  <Switch defaultChecked={idx === 0} />
+                  <Switch defaultChecked={idx === 0} disabled={hasError} />
                 </div>
               ))}
             </div>
@@ -170,10 +226,10 @@ export function SettingsPage() {
             <div className="bg-gradient-to-br from-[#0275D8]/10 to-[#00C2D1]/10 rounded-xl p-6 border border-[#0275D8]/20">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-xl font-bold text-[#0A2342] mb-2">Career LaunchPad</h3>
+                  <h3 className="text-xl font-bold text-[#0A2342] mb-2 capitalize">Career {userData.planName}</h3>
                   <p className="text-sm text-gray-600">Full-service career acceleration</p>
                 </div>
-                <PlanBadge plan="launchpad" />
+                <PlanBadge plan={userData.planName.toLowerCase() as any} />
               </div>
               <div className="space-y-2 mb-4">
                 <div className="flex justify-between text-sm">
@@ -186,14 +242,14 @@ export function SettingsPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Applications Remaining:</span>
-                  <span className="text-green-600 font-semibold">153 / 200</span>
+                  <span className="text-green-600 font-semibold">{userData.remainingQuota} / {userData.totalQuota}</span>
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1">
+                <Button variant="outline" className="flex-1" disabled={hasError}>
                   Change Plan
                 </Button>
-                <Button variant="outline" className="flex-1 text-red-600 border-red-200 hover:bg-red-50">
+                <Button variant="outline" className="flex-1 text-red-600 border-red-200 hover:bg-red-50" disabled={hasError}>
                   Cancel Subscription
                 </Button>
               </div>
@@ -212,7 +268,7 @@ export function SettingsPage() {
                   <p className="text-sm text-gray-600">Expires 12/2027</p>
                 </div>
               </div>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" disabled={hasError}>
                 Update
               </Button>
             </div>
@@ -240,7 +296,7 @@ export function SettingsPage() {
                     <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">
                       {invoice.status}
                     </span>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" disabled={hasError}>
                       Download
                     </Button>
                   </div>
@@ -262,19 +318,19 @@ export function SettingsPage() {
             <div className="space-y-4">
               <div>
                 <Label>Target Job Titles</Label>
-                <Input defaultValue="Senior Software Engineer, Full Stack Developer" />
+                <Input defaultValue="Senior Software Engineer, Full Stack Developer" disabled={hasError} />
               </div>
               <div>
                 <Label>Preferred Locations</Label>
-                <Input defaultValue="San Francisco, Remote, New York" />
+                <Input defaultValue="San Francisco, Remote, New York" disabled={hasError} />
               </div>
               <div>
                 <Label>Minimum Salary (USD)</Label>
-                <Input type="number" defaultValue="150000" />
+                <Input type="number" defaultValue="150000" disabled={hasError} />
               </div>
               <div>
                 <Label>Industries</Label>
-                <Input defaultValue="Technology, Finance, Healthcare" />
+                <Input defaultValue="Technology, Finance, Healthcare" disabled={hasError} />
               </div>
             </div>
           </div>
@@ -287,14 +343,14 @@ export function SettingsPage() {
                   <p className="font-medium text-gray-900">Auto-Apply to Matches</p>
                   <p className="text-sm text-gray-600">Automatically apply to highly matched jobs</p>
                 </div>
-                <Switch defaultChecked />
+                <Switch defaultChecked disabled={hasError} />
               </div>
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                 <div>
                   <p className="font-medium text-gray-900">Resume Auto-Optimization</p>
                   <p className="text-sm text-gray-600">Optimize resumes without manual approval</p>
                 </div>
-                <Switch />
+                <Switch disabled={hasError} />
               </div>
             </div>
           </div>
@@ -304,7 +360,7 @@ export function SettingsPage() {
             <div className="space-y-4">
               <div>
                 <Label>Language</Label>
-                <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0275D8]">
+                <select disabled={hasError} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0275D8]">
                   <option>English (US)</option>
                   <option>English (UK)</option>
                   <option>Spanish</option>
@@ -313,7 +369,7 @@ export function SettingsPage() {
               </div>
               <div>
                 <Label>Timezone</Label>
-                <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0275D8]">
+                <select disabled={hasError} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0275D8]">
                   <option>Pacific Time (PT)</option>
                   <option>Mountain Time (MT)</option>
                   <option>Central Time (CT)</option>
@@ -322,7 +378,7 @@ export function SettingsPage() {
               </div>
             </div>
           </div>
-          <Button className="bg-gradient-to-r from-[#0275D8] to-[#00C2D1] text-white">
+          <Button disabled={hasError} className="bg-gradient-to-r from-[#0275D8] to-[#00C2D1] text-white">
             <Save className="w-4 h-4 mr-2" />
             Save Preferences
           </Button>
@@ -333,6 +389,14 @@ export function SettingsPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
+      {/* Offline Warning Banner */}
+      {hasError && (
+        <div className="mb-6 bg-orange-50 border border-orange-200 text-orange-800 px-4 py-3 rounded-lg flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-orange-500" />
+          <p className="text-sm">Unable to connect to live database. Settings are currently in read-only offline mode.</p>
+        </div>
+      )}
+
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
         <h1 className="text-3xl font-bold text-[#0A2342] mb-2">Settings</h1>
