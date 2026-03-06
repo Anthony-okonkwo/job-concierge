@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Download, Eye, Edit, Copy, FileText, Target, TrendingUp, Loader2, X, AlertCircle, Save } from "lucide-react";
 import { Button } from "./ui/button";
 import { ATSScoreBadge } from "./ATSScoreBadge";
@@ -24,13 +24,30 @@ export function ResumeVersionsPage() {
   const [editSummary, setEditSummary] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-  const testClientId = "11111111-1111-1111-1111-111111111111";
-  const API_BASE_URL = import.meta.env.VITE_API_URL;
+  // Fallback for local dev
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+  // --- HELPER: GET TOKEN ---
+  const getToken = () => localStorage.getItem("jobConciergeToken");
+
   // --- FETCH DATA FROM DATABASE ---
   useEffect(() => {
     const fetchResumes = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/${testClientId}`);
+        const token = getToken();
+        if (!token) throw new Error("No authentication token found");
+        
+        // Decode token to get real UUID
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        const currentUserId = tokenPayload.sub;
+
+        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/${currentUserId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
         if (!response.ok) throw new Error("Wahala fetching resumes");
         const data = await response.json();
         setResumeVersions(data.resumeLibrary || []);
@@ -42,7 +59,7 @@ export function ResumeVersionsPage() {
       }
     };
     fetchResumes();
-  }, []);
+  }, [API_BASE_URL]);
 
   const stats = [
     { label: "Total Resume Versions", value: resumeVersions.length, icon: FileText },
@@ -54,22 +71,24 @@ export function ResumeVersionsPage() {
     if (!targetRoleInput.trim()) return;
     setIsGenerating(true);
     try {
-      // Hits the new GENERATE endpoint
+      const token = getToken();
       const response = await fetch(`${API_BASE_URL}/api/v1/resumes/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ targetRole: targetRoleInput }),
       });
       if (!response.ok) throw new Error("Failed to generate resume");
       
       const data = await response.json();
-      const newResume = data.resume; // The saved DB record
+      const newResume = data.resume;
 
       setResumeVersions([newResume, ...resumeVersions]);
       setIsModalOpen(false);
       setTargetRoleInput("");
       
-      // Open preview automatically
       handlePreview(newResume);
     } catch (error) {
       alert("Error generating resume.");
@@ -78,24 +97,59 @@ export function ResumeVersionsPage() {
     }
   };
 
-  const handlePreview = (resume: any) => {
+  // SECURE PDF PREVIEW (Blob Fetching)
+  const handlePreview = async (resume: any) => {
     setCurrentPreviewResume(resume);
-    // Point directly to the new PDF render endpoint (add timestamp to bypass browser cache)
-    setPreviewUrl(`${API_BASE_URL}/api/v1/resumes/${resume.id}/pdf?t=${Date.now()}`);
     setIsPreviewOpen(true);
+    setPreviewUrl(null); // Triggers the loading spinner
+
+    try {
+      const token = getToken();
+      const response = await fetch(`${API_BASE_URL}/api/v1/resumes/${resume.id}/pdf?t=${Date.now()}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!response.ok) throw new Error("Failed to load PDF preview");
+      
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      setPreviewUrl(objectUrl);
+    } catch (error) {
+      console.error("Preview error:", error);
+      alert("Wahala loading preview.");
+      setIsPreviewOpen(false);
+    }
   };
 
-  const handleDownload = (resume: any) => {
+  // SECURE PDF DOWNLOAD (Blob Fetching)
+  const handleDownload = async (resume: any) => {
     setDownloadingId(resume.id);
-    const url = `${API_BASE_URL}/api/v1/resumes/${resume.id}/pdf`;
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${resume.targetRole.replace(/\s+/g, "_")}_Resume.pdf`;
-    a.click();
-    setDownloadingId(null);
+    try {
+      const token = getToken();
+      const response = await fetch(`${API_BASE_URL}/api/v1/resumes/${resume.id}/pdf`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error("Failed to download PDF");
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = `${resume.targetRole.replace(/\s+/g, "_")}_Resume.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objectUrl); // Clean up memory
+    } catch (error) {
+      console.error("Download error:", error);
+      alert("Failed to download resume.");
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
-  // --- EDIT FUNCTIONS ---
   const openEditModal = (resume: any) => {
     if (!resume.content) {
       alert("Old resume format detected. Cannot edit content missing from DB.");
@@ -109,10 +163,14 @@ export function ResumeVersionsPage() {
   const saveEdits = async () => {
     setIsSavingEdit(true);
     try {
+      const token = getToken();
       const updatedContent = { ...editingResume.content, summary: editSummary };
       const response = await fetch(`${API_BASE_URL}/api/v1/resumes/${editingResume.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ content: updatedContent }),
       });
       
@@ -121,13 +179,22 @@ export function ResumeVersionsPage() {
 
       setResumeVersions(resumeVersions.map(r => r.id === editingResume.id ? data.resume : r));
       setIsEditOpen(false);
-      handlePreview(data.resume); // Show updated PDF immediately!
+      handlePreview(data.resume);
     } catch (error) {
       alert("Failed to save changes.");
     } finally {
       setIsSavingEdit(false);
     }
   };
+
+  // (Cleanup object URLs when component unmounts or preview closes to prevent memory leaks)
+  useEffect(() => {
+    return () => {
+      if (previewUrl && !isPreviewOpen) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [isPreviewOpen, previewUrl]);
 
   if (isLoading) {
     return (
@@ -169,7 +236,7 @@ export function ResumeVersionsPage() {
         )}
       </AnimatePresence>
 
-      {/* EDIT MODAL (NEW) */}
+      {/* EDIT MODAL */}
       <AnimatePresence>
         {isEditOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
@@ -204,7 +271,7 @@ export function ResumeVersionsPage() {
                 <button onClick={() => setIsPreviewOpen(false)} className="p-2 hover:bg-gray-200 rounded-full"><X className="w-5 h-5" /></button>
               </div>
               <div className="flex-1 bg-gray-100 flex items-center justify-center">
-                {!previewUrl ? <Loader2 className="w-8 h-8 animate-spin text-[#0275D8]" /> : <iframe src={`${previewUrl}`} className="w-full h-full border-none" title="Resume Preview" />}
+                {!previewUrl ? <Loader2 className="w-8 h-8 animate-spin text-[#0275D8]" /> : <iframe src={previewUrl} className="w-full h-full border-none" title="Resume Preview" />}
               </div>
             </motion.div>
           </motion.div>
@@ -257,7 +324,6 @@ export function ResumeVersionsPage() {
               </div>
               <div className="flex flex-row lg:flex-col gap-2">
                 <Button onClick={() => handlePreview(resume)} variant="outline" size="sm"><Eye className="w-4 h-4 mr-2" />Preview</Button>
-                {/* CONNECTED THE EDIT BUTTON */}
                 <Button onClick={() => openEditModal(resume)} variant="outline" size="sm"><Edit className="w-4 h-4 mr-2" />Edit</Button>
                 <Button onClick={() => handleDownload(resume)} disabled={downloadingId === resume.id} variant="outline" size="sm">
                   {downloadingId === resume.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}

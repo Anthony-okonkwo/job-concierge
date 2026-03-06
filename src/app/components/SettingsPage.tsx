@@ -24,17 +24,35 @@ export function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [userData, setUserData] = useState<any>(null);
-  const API_BASE_URL = import.meta.env.VITE_API_URL;
+  
+  // Safe Fallback for local testing
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/test-client-123`);
+        // 1. Get the VIP Pass (Token)
+        const token = localStorage.getItem("jobConciergeToken");
+        if (!token) throw new Error("No authentication token found");
+        
+        // 2. Decode the token to get the user's ID
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        const currentUserId = tokenPayload.sub;
+
+        // 3. Securely fetch using the dynamic ID and Authorization header
+        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/${currentUserId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
         if (!response.ok) throw new Error("Wahala fetching settings data");
         
         const data = await response.json();
         setUserData({
           name: data.user.name,
-          email: `${data.user.name.split(' ')[0].toLowerCase()}@cyberpurview.com`, // Mocking email for now
+          email: `${data.user.name.split(' ')[0].toLowerCase()}@cyberpurview.com`, // Keep your mock email logic
           planName: data.user.planName,
           totalQuota: data.user.totalQuota,
           remainingQuota: data.metrics.remainingQuota.value,
@@ -59,7 +77,7 @@ export function SettingsPage() {
     };
 
     fetchUserData();
-  }, []);
+  }, [API_BASE_URL]);
 
   if (isLoading) {
     return (

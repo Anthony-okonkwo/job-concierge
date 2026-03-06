@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router';
 import { motion, Variants } from 'framer-motion';
 import { Sparkles, Eye, EyeOff, Mail, Lock } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+// Added the local fallback just to keep your dev environment bulletproof!
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 interface AuthResponse {
   token: string;
@@ -213,7 +214,6 @@ const LoginPage: React.FC = () => {
 
             </form>
 
-          
           </motion.div>
         </motion.div>
       </div>

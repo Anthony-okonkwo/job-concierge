@@ -19,12 +19,29 @@ export function ApplicationsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [hasError, setHasError] = useState(false);
-  const API_BASE_URL = import.meta.env.VITE_API_URL;
+  
+  // Added the fallback localhost port just to be safe
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
   
   useEffect(() => {
     const fetchApplications = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/applications`);
+        // 1. Grab the VIP Pass (Token)
+        const token = localStorage.getItem("jobConciergeToken");
+        if (!token) throw new Error("No authentication token found");
+        
+        // 2. Decode the token to get the user's ID
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        const currentUserId = tokenPayload.sub;
+
+        // 3. Fetch with the ID in the URL and the token in the headers
+        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/applications/${currentUserId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
         if (!response.ok) throw new Error("Wahala fetching applications data");
         
         const data = await response.json();
@@ -53,7 +70,7 @@ export function ApplicationsPage() {
     };
 
     fetchApplications();
-  }, []);
+  }, [API_BASE_URL]);
 
   const filteredApplications = applications.filter((app) => {
     const matchesSearch =
