@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { motion } from "motion/react";
+import { motion } from "motion/react"; // or framer-motion depending on your package setup
 import { Send, Target, TrendingUp, Award, Download, Eye, Calendar, MessageSquare, Zap, Loader2, AlertCircle } from "lucide-react";
 import { KPICard } from "./KPICard";
 import { PipelineCard } from "./PipelineCard";
@@ -12,26 +12,41 @@ export function CustomerDashboard() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   
-  const testClientId = "11111111-1111-1111-1111-111111111111";
-  const API_BASE_URL = import.meta.env.VITE_API_URL;
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/${testClientId}`);
+        // 1. Get the token
+        const token = localStorage.getItem("jobConciergeToken");
+        if (!token) throw new Error("No authentication token found");
+
+        // 2. Decode the token to get the real user ID
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        const currentUserId = tokenPayload.sub;
+
+        // 3. Fetch using the dynamic ID and the Authorization header
+        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/${currentUserId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
         if (!response.ok) throw new Error("Wahala fetching customer dashboard data");
         
         const data = await response.json();
         setDashboardData(data);
       } catch (err) {
         console.error("Failed to load customer dashboard:", err);
-        setError("Unable to connect to the live database.");
+        setError("Unable to connect to the live database or unauthorized.");
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchDashboard();
-  }, []);
+  }, [API_BASE_URL]);
 
   if (isLoading) {
     return (
@@ -42,7 +57,6 @@ export function CustomerDashboard() {
     );
   }
 
-  // Proper Error Handling: If there's no data, stop here and show the error cleanly
   if (error || !dashboardData) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen text-[#0A2342]">

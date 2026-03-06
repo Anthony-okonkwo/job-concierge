@@ -55,7 +55,7 @@ export function ResumeVersionsPage() {
     setIsGenerating(true);
     try {
       // Hits the new GENERATE endpoint
-      const response = await fetch("${API_BASE_URL}/api/v1/resumes/generate", {
+      const response = await fetch(`${API_BASE_URL}/api/v1/resumes/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetRole: targetRoleInput }),

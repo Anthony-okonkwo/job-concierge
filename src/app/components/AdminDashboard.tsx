@@ -7,12 +7,26 @@ import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
 export function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<any>(null);
-  const [hasError, setHasError] = useState(false); // To show offline warning banner
+  const [hasError, setHasError] = useState(false); 
+  
+  // Define the base URL properly
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
   useEffect(() => {
     const fetchAdminData = async () => {
       try {
-        const response = await fetch("${API_BASE_URL}/api/v1/dashboard/admin");
+        // 1. Get the token
+        const token = localStorage.getItem("jobConciergeToken");
+        if (!token) throw new Error("No authentication token found");
+
+        // 2. Fetch using template literal and the Authorization header
+        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/admin`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
         if (!response.ok) throw new Error("Wahala fetching admin data");
         
         const data = await response.json();
@@ -21,7 +35,7 @@ export function AdminDashboard() {
         console.error("Failed to load admin dashboard:", error);
         setHasError(true);
         
-        // GRACEFUL FALLBACK: Feed it skeleton data instead of crashing
+        // GRACEFUL FALLBACK
         setDashboardData({
           platformKPIs: [
             { title: "Total Active Clients", value: "...", trend: 0, iconName: "Users" },
@@ -43,7 +57,7 @@ export function AdminDashboard() {
     };
 
     fetchAdminData();
-  }, []);
+  }, [API_BASE_URL]);
 
   const getPerformanceColor = (performance: string) => {
     if (performance === "excellent") return "text-green-600 bg-green-50";
@@ -143,7 +157,6 @@ export function AdminDashboard() {
                         </td>
                         <td className="py-4 px-4">
                           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                            {/* Fixed the snake_case vs camelCase mismatch here! */}
                             {specialist.avg_ats || specialist.avgATS || 0}
                           </span>
                         </td>

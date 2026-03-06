@@ -25,4 +25,4 @@ When you are ready to put this on the live server (like Namecheap, Vercel, or Ne
    npm run build
    \`\`\`
 3. **The Output:** Vite will create a new folder called **`dist`**. 
-4. **Deploy:** Take the contents of that `dist` folder and upload them directly to your public HTML folder (e.g., `public_html`) on Namecheap.
+4. **Deploy:** Take the contents of that `dist` folder and upload them directly to your public HTML folder (e.g., `public_html`) on Namecheap.g
