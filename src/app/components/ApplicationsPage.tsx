@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { motion } from "motion/react";
+import { motion } from "framer-motion"; // Note: changed from motion/react for standard compatibility
 import { Search, Filter, Eye, ExternalLink, Calendar, Building, Loader2, AlertCircle } from "lucide-react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
@@ -20,11 +20,28 @@ export function ApplicationsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [hasError, setHasError] = useState(false);
   const API_BASE_URL = import.meta.env.VITE_API_URL;
-  
+
   useEffect(() => {
     const fetchApplications = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/applications`);
+        const token = localStorage.getItem("jobConciergeToken");
+        
+        if (!token) {
+          throw new Error("No auth token found");
+        } // 🚀 ADDED MISSING BRACE HERE
+
+        // Decode the JWT payload to extract the real user's UUID
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        const currentUserId = tokenPayload.sub;
+
+        // 🚀 Dynamic UUID appended + Auth Header added
+        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/applications/${currentUserId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
         if (!response.ok) throw new Error("Wahala fetching applications data");
         
         const data = await response.json();
@@ -33,29 +50,17 @@ export function ApplicationsPage() {
         console.error("Failed to load applications:", error);
         setHasError(true);
         
-        // GRACEFUL FALLBACK: Feed it skeleton data so the UI doesn't look broken
-        setApplications([
-          {
-            id: "fallback-1",
-            jobTitle: "...",
-            company: "...",
-            location: "...",
-            appliedDate: "...",
-            status: "applied", 
-            atsScore: "...",
-            resumeVersion: "...",
-            salary: "..."
-          }
-        ]);
+        // GRACEFUL FALLBACK
+        setApplications([]);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchApplications();
-  }, []);
+  }, [API_BASE_URL]);
 
-  const filteredApplications = applications.filter((app) => {
+  const filteredApplications = (applications || []).filter((app) => {
     const matchesSearch =
       (app.jobTitle || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (app.company || "").toLowerCase().includes(searchQuery.toLowerCase());
@@ -66,22 +71,22 @@ export function ApplicationsPage() {
   const stats = [
     { 
       label: "Total Applications", 
-      value: hasError ? "..." : applications.length, 
+      value: hasError ? "0" : (applications || []).length, 
       color: "text-[#0275D8]" 
     },
     {
       label: "Interviews",
-      value: hasError ? "..." : applications.filter((a) => a.status === "interview").length,
+      value: hasError ? "0" : (applications || []).filter((a) => a.status === "interview").length,
       color: "text-green-600",
     },
     {
       label: "Offers",
-      value: hasError ? "..." : applications.filter((a) => a.status === "offer").length,
+      value: hasError ? "0" : (applications || []).filter((a) => a.status === "offer").length,
       color: "text-emerald-600",
     },
     {
       label: "Pending",
-      value: hasError ? "..." : applications.filter((a) => a.status === "applied" || a.status === "viewed").length,
+      value: hasError ? "0" : (applications || []).filter((a) => a.status === "applied" || a.status === "viewed").length,
       color: "text-blue-600",
     },
   ];
@@ -97,7 +102,6 @@ export function ApplicationsPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
-      {/* Offline Warning Banner */}
       {hasError && (
         <div className="mb-6 bg-orange-50 border border-orange-200 text-orange-800 px-4 py-3 rounded-lg flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-orange-500" />
@@ -162,7 +166,7 @@ export function ApplicationsPage() {
       <div className="space-y-4">
         {filteredApplications.map((app, idx) => (
           <motion.div
-            key={app.id}
+            key={app.id || idx}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 + idx * 0.1 }}
@@ -186,15 +190,15 @@ export function ApplicationsPage() {
                 <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mt-3">
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
-                    <span>Applied: {app.appliedDate}</span>
+                    <span>Applied: {app.appliedDate || 'N/A'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-gray-400">Salary:</span>
-                    <span className={hasError ? "font-semibold text-gray-400" : "font-semibold text-green-600"}>{app.salary}</span>
+                    <span className={hasError ? "font-semibold text-gray-400" : "font-semibold text-green-600"}>{app.salary || 'Competitive'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-gray-400">Resume:</span>
-                    <span className={hasError ? "text-gray-400 font-medium" : "text-[#0275D8] font-medium"}>{app.resumeVersion}</span>
+                    <span className={hasError ? "text-gray-400 font-medium" : "text-[#0275D8] font-medium"}>{app.resumeVersion || 'Default'}</span>
                   </div>
                 </div>
               </div>

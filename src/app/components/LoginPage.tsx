@@ -1,5 +1,5 @@
 import React, { useState, ChangeEvent, FormEvent } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate } from 'react-router-dom';
 import { motion, Variants } from 'framer-motion';
 import { Sparkles, Eye, EyeOff, Mail, Lock } from 'lucide-react';
 

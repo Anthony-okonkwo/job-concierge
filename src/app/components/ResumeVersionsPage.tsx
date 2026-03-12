@@ -24,13 +24,36 @@ export function ResumeVersionsPage() {
   const [editSummary, setEditSummary] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-  const testClientId = "11111111-1111-1111-1111-111111111111";
   const API_BASE_URL = import.meta.env.VITE_API_URL;
+  
+  // 🚀 GET TOKEN AND EXTRACT REAL CLIENT ID
+  const token = localStorage.getItem('jobConciergeToken');
+  let realClientId = "";
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      realClientId = payload.sub; // Supabase stores the user UUID in 'sub'
+    } catch (e) {
+      console.error("Wahala decoding token:", e);
+    }
+  }
+
   // --- FETCH DATA FROM DATABASE ---
   useEffect(() => {
     const fetchResumes = async () => {
+      if (!realClientId || !token) {
+        setHasError(true);
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/${testClientId}`);
+        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/${realClientId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`, // 🚀 Authenticate the request
+            'Content-Type': 'application/json'
+          }
+        });
         if (!response.ok) throw new Error("Wahala fetching resumes");
         const data = await response.json();
         setResumeVersions(data.resumeLibrary || []);
@@ -42,7 +65,7 @@ export function ResumeVersionsPage() {
       }
     };
     fetchResumes();
-  }, []);
+  }, [realClientId, token]);
 
   const stats = [
     { label: "Total Resume Versions", value: resumeVersions.length, icon: FileText },
@@ -51,25 +74,26 @@ export function ResumeVersionsPage() {
   ];
 
   const submitNewResume = async () => {
-    if (!targetRoleInput.trim()) return;
+    if (!targetRoleInput.trim() || !token) return;
     setIsGenerating(true);
     try {
-      // Hits the new GENERATE endpoint
       const response = await fetch(`${API_BASE_URL}/api/v1/resumes/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetRole: targetRoleInput }),
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` // 🚀 Added token
+        },
+        body: JSON.stringify({ targetRole: targetRoleInput, clientId: realClientId }), // 🚀 Send clientId if backend needs it
       });
       if (!response.ok) throw new Error("Failed to generate resume");
       
       const data = await response.json();
-      const newResume = data.resume; // The saved DB record
+      const newResume = data.resume;
 
       setResumeVersions([newResume, ...resumeVersions]);
       setIsModalOpen(false);
       setTargetRoleInput("");
       
-      // Open preview automatically
       handlePreview(newResume);
     } catch (error) {
       alert("Error generating resume.");
@@ -80,14 +104,15 @@ export function ResumeVersionsPage() {
 
   const handlePreview = (resume: any) => {
     setCurrentPreviewResume(resume);
-    // Point directly to the new PDF render endpoint (add timestamp to bypass browser cache)
-    setPreviewUrl(`${API_BASE_URL}/api/v1/resumes/${resume.id}/pdf?t=${Date.now()}`);
+    // 🚀 Passed token in query string in case the PDF route is protected
+    setPreviewUrl(`${API_BASE_URL}/api/v1/resumes/${resume.id}/pdf?t=${Date.now()}&token=${token}`);
     setIsPreviewOpen(true);
   };
 
   const handleDownload = (resume: any) => {
     setDownloadingId(resume.id);
-    const url = `${API_BASE_URL}/api/v1/resumes/${resume.id}/pdf`;
+    // 🚀 Passed token in query string here as well
+    const url = `${API_BASE_URL}/api/v1/resumes/${resume.id}/pdf?token=${token}`;
     const a = document.createElement("a");
     a.href = url;
     a.download = `${resume.targetRole.replace(/\s+/g, "_")}_Resume.pdf`;
@@ -107,12 +132,16 @@ export function ResumeVersionsPage() {
   };
 
   const saveEdits = async () => {
+    if (!token) return;
     setIsSavingEdit(true);
     try {
       const updatedContent = { ...editingResume.content, summary: editSummary };
       const response = await fetch(`${API_BASE_URL}/api/v1/resumes/${editingResume.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` // 🚀 Added token
+        },
         body: JSON.stringify({ content: updatedContent }),
       });
       
@@ -121,7 +150,7 @@ export function ResumeVersionsPage() {
 
       setResumeVersions(resumeVersions.map(r => r.id === editingResume.id ? data.resume : r));
       setIsEditOpen(false);
-      handlePreview(data.resume); // Show updated PDF immediately!
+      handlePreview(data.resume);
     } catch (error) {
       alert("Failed to save changes.");
     } finally {

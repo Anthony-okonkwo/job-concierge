@@ -7,7 +7,7 @@ export function InterviewsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [interviewData, setInterviewData] = useState<any>(null);
   const [hasError, setHasError] = useState(false);
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 🚀 Switched to 3000
 
   useEffect(() => {
     const fetchInterviews = async () => {
@@ -28,8 +28,43 @@ export function InterviewsPage() {
 
         if (!response.ok) throw new Error("Wahala fetching interviews data");
         
-        const data = await response.json();
-        setInterviewData(data);
+        const rawData = await response.json();
+        
+        // 🚀 THE FIX: Transform the raw Supabase array into the object the UI expects
+        const interviewsArray = Array.isArray(rawData) ? rawData : [];
+        
+        // Format Postgres snake_case to frontend camelCase
+        const formattedInterviews = interviewsArray.map(i => ({
+          id: i.id,
+          jobTitle: i.job_title,
+          company: i.company,
+          date: i.date,
+          time: i.time,
+          type: i.type,
+          platform: i.platform,
+          interviewers: i.interviewers,
+          stage: i.stage,
+          notes: i.notes,
+          preparationStatus: i.preparation_status || 'Pending',
+          meetingLink: i.meeting_link,
+          status: i.status || 'upcoming',
+          outcome: i.outcome,
+          feedback: i.feedback
+        }));
+
+        const upcoming = formattedInterviews.filter(i => i.status?.toLowerCase() !== 'completed' && i.status?.toLowerCase() !== 'past');
+        const past = formattedInterviews.filter(i => i.status?.toLowerCase() === 'completed' || i.status?.toLowerCase() === 'past');
+
+        setInterviewData({
+          upcomingInterviews: upcoming,
+          pastInterviews: past,
+          stats: [
+            { label: "Upcoming", value: upcoming.length, color: "text-[#0275D8]" },
+            { label: "Total Completed", value: past.length, color: "text-green-600" },
+            { label: "Total Tracked", value: formattedInterviews.length, color: "text-gray-600" },
+          ]
+        });
+
       } catch (error) {
         console.error("Failed to load interviews:", error);
         setHasError(true);
@@ -40,8 +75,8 @@ export function InterviewsPage() {
           pastInterviews: [],
           stats: [
             { label: "Upcoming", value: 0, color: "text-[#0275D8]" },
-            { label: "This Week", value: 0, color: "text-green-600" },
-            { label: "Total Completed", value: 0, color: "text-gray-600" },
+            { label: "Total Completed", value: 0, color: "text-green-600" },
+            { label: "Total Tracked", value: 0, color: "text-gray-600" },
           ]
         });
       } finally {
@@ -73,7 +108,7 @@ export function InterviewsPage() {
     );
   }
 
-  const { upcomingInterviews, pastInterviews, stats } = interviewData;
+  const { upcomingInterviews = [], pastInterviews = [], stats = [] } = interviewData || {};
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
@@ -93,7 +128,7 @@ export function InterviewsPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        {stats.map((stat: any, idx: number) => (
+        {(stats || []).map((stat: any, idx: number) => (
           <motion.div
             key={idx}
             initial={{ opacity: 0, y: 20 }}
@@ -149,16 +184,16 @@ export function InterviewsPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                       <div className="flex items-center gap-2 text-sm text-gray-700">
                         <Calendar className="w-4 h-4 text-[#0275D8]" />
-                        <span>{interview.date}</span>
+                        <span>{interview.date || 'TBD'}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-700">
                         <Clock className="w-4 h-4 text-[#0275D8]" />
-                        <span>{interview.time}</span>
+                        <span>{interview.time || 'TBD'}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-700">
                         {getTypeIcon(interview.type)}
                         <span className="capitalize">
-                          {interview.type}
+                          {interview.type || 'TBD'}
                           {interview.platform && ` (${interview.platform})`}
                         </span>
                       </div>
@@ -174,7 +209,7 @@ export function InterviewsPage() {
                         <FileText className="w-4 h-4 text-gray-400 mt-0.5" />
                         <div>
                           <span className="text-gray-600 font-medium">Stage: </span>
-                          <span className="text-[#0275D8] font-semibold">{interview.stage}</span>
+                          <span className="text-[#0275D8] font-semibold">{interview.stage || 'Initial'}</span>
                         </div>
                       </div>
                     </div>
@@ -251,7 +286,7 @@ export function InterviewsPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-600">Outcome:</span>
-                        <span className="text-sm font-semibold text-green-600">{interview.outcome}</span>
+                        <span className="text-sm font-semibold text-green-600">{interview.outcome || 'Pending'}</span>
                       </div>
                       {interview.feedback && (
                         <div className="bg-green-50 border border-green-200 rounded-lg p-2 mt-2">

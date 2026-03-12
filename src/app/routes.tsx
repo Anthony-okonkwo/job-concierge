@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, Outlet } from "react-router";
+import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import LoginPage from "./components/LoginPage";
 import { DashboardLayout } from "./components/DashboardLayout";
 import { CustomerDashboard } from "./components/CustomerDashboard";
