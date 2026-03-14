@@ -41,7 +41,6 @@ export function ApplicationsPage() {
             'Content-Type': 'application/json'
           }
         });
-
         if (!response.ok) throw new Error("Wahala fetching applications data");
         
         const data = await response.json();

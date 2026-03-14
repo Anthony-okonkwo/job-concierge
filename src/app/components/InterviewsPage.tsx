@@ -158,7 +158,7 @@ export function InterviewsPage() {
         <p className="text-gray-600">Manage your interview schedule and preparation</p>
       </motion.div>
 
-      {/* Stats */}
+      {/* Stats - Protected with optional chaining */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {(stats || []).map((stat: any, idx: number) => (
           <motion.div
@@ -323,7 +323,8 @@ export function InterviewsPage() {
                         <p className="text-xs text-gray-500 mt-1">{interview.date}</p>
                       </div>
                     </div>
-                    <div className="ml-13 space-y-2 mt-4 sm:mt-0">
+                    {/* Corrected Tailwind class here from ml-13 to ml-12 */}
+                    <div className="ml-12 space-y-2 mt-4 sm:mt-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-600">Stage:</span>
                         <span className="text-sm font-medium text-gray-900">{interview.stage}</span>
