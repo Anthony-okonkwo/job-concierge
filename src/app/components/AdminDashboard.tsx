@@ -15,12 +15,15 @@ export function AdminDashboard() {
   useEffect(() => {
     const fetchAdminData = async () => {
       try {
-        // 1. Get the token
+        // 1. Get the token and extract the Admin ID
         const token = localStorage.getItem("jobConciergeToken");
         if (!token) throw new Error("No authentication token found");
+        
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        const adminId = tokenPayload.sub; // 🚀 Extract the ID
 
-        // 2. Fetch using template literal and the Authorization header
-        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/admin`, {
+        // 2. 🚀 Attach the adminId to the URL
+        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/admin/${adminId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'

@@ -7,7 +7,7 @@ export function InterviewsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [interviewData, setInterviewData] = useState<any>(null);
   const [hasError, setHasError] = useState(false);
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 🚀 Switched to 3000
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
   useEffect(() => {
     const fetchInterviews = async () => {
@@ -18,7 +18,6 @@ export function InterviewsPage() {
         const tokenPayload = JSON.parse(atob(token.split('.')[1]));
         const currentUserId = tokenPayload.sub;
 
-        // Fetching the user's specific interview data
         const response = await fetch(`${API_BASE_URL}/api/v1/interviews/${currentUserId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -29,11 +28,8 @@ export function InterviewsPage() {
         if (!response.ok) throw new Error("Wahala fetching interviews data");
         
         const rawData = await response.json();
-        
-        // 🚀 THE FIX: Transform the raw Supabase array into the object the UI expects
         const interviewsArray = Array.isArray(rawData) ? rawData : [];
         
-        // Format Postgres snake_case to frontend camelCase
         const formattedInterviews = interviewsArray.map(i => ({
           id: i.id,
           jobTitle: i.job_title,
@@ -68,11 +64,8 @@ export function InterviewsPage() {
       } catch (error) {
         console.error("Failed to load interviews:", error);
         setHasError(true);
-        
-        // GRACEFUL FALLBACK
         setInterviewData({
-          upcomingInterviews: [],
-          pastInterviews: [],
+          upcomingInterviews: [], pastInterviews: [],
           stats: [
             { label: "Upcoming", value: 0, color: "text-[#0275D8]" },
             { label: "Total Completed", value: 0, color: "text-green-600" },
@@ -86,6 +79,45 @@ export function InterviewsPage() {
 
     fetchInterviews();
   }, [API_BASE_URL]);
+
+  // ==========================================
+  // 🚀 BUTTON ACTION HANDLERS
+  // ==========================================
+  const handleJoinMeeting = (link: string) => {
+    if (link) {
+      window.open(link, '_blank', 'noopener,noreferrer');
+    } else {
+      alert("No meeting link provided for this interview yet!");
+    }
+  };
+
+  const handleAddToCalendar = (interview: any) => {
+    const title = encodeURIComponent(`Interview: ${interview.jobTitle} at ${interview.company}`);
+    const details = encodeURIComponent(`Meeting Link: ${interview.meetingLink || 'TBD'}\n\nStage: ${interview.stage || 'Initial'}\nNotes: ${interview.notes || 'None'}`);
+    
+    // Safely parse the date and time
+    let startDateStr = interview.date ? `${interview.date}T${interview.time || '00:00'}:00` : new Date().toISOString();
+    let startDate = new Date(startDateStr);
+    
+    if (isNaN(startDate.getTime())) {
+       startDate = new Date(); // Fallback to now if DB string is weird
+    }
+    
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Assumes 1 hour interview
+
+    const formatGoogleDate = (d: Date) => d.toISOString().replace(/-|:|\.\d\d\d/g, '');
+    const dates = `${formatGoogleDate(startDate)}/${formatGoogleDate(endDate)}`;
+
+    const googleCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}`;
+    window.open(googleCalUrl, '_blank');
+  };
+
+  const handlePrepGuide = (interviewId: string) => {
+    // 🚧 Placeholder for our next feature!
+    alert(`AI Prep Guide logic for Interview ID: ${interviewId} Coming Soon!`);
+  };
+
+  // ==========================================
 
   const getTypeIcon = (type: string) => {
     if (type?.toLowerCase() === "video") return <Video className="w-4 h-4" />;
@@ -224,17 +256,29 @@ export function InterviewsPage() {
                   </div>
 
                   <div className="flex flex-col gap-2 lg:w-48 pt-4 lg:pt-0">
+                    {/* 🚀 WIRED BUTTONS HERE */}
                     {interview.meetingLink && (
-                      <Button className="w-full bg-gradient-to-r from-[#0275D8] to-[#00C2D1] text-white">
+                      <Button 
+                        onClick={() => handleJoinMeeting(interview.meetingLink)}
+                        className="w-full bg-gradient-to-r from-[#0275D8] to-[#00C2D1] text-white"
+                      >
                         <Video className="w-4 h-4 mr-2" />
                         Join Meeting
                       </Button>
                     )}
-                    <Button variant="outline" className="w-full">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleAddToCalendar(interview)}
+                      className="w-full"
+                    >
                       <Calendar className="w-4 h-4 mr-2" />
                       Add to Calendar
                     </Button>
-                    <Button variant="outline" className="w-full">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handlePrepGuide(interview.id)}
+                      className="w-full"
+                    >
                       <FileText className="w-4 h-4 mr-2" />
                       Prep Guide
                     </Button>

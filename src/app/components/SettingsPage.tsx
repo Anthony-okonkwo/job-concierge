@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { motion } from "motion/react";
+import { motion } from "framer-motion";
 import {
   User,
   Lock,
@@ -17,49 +17,147 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
-import { PlanBadge } from "./PlanBadge";
+import { PlanBadge } from "./PlanBadge"; // Make sure this component exists
 import { Separator } from "./ui/separator";
 
 export function SettingsPage() {
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  
+  // 🚀 CORE STATE
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [userData, setUserData] = useState<any>(null);
-  const API_BASE_URL = import.meta.env.VITE_API_URL;
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // 🚀 FORM STATES
+  const [profileForm, setProfileForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    linkedin: ""
+  });
+
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  });
+
+  const [billingInfo, setBillingInfo] = useState({
+    planName: "launchpad",
+    totalQuota: 0,
+    remainingQuota: 0,
+  });
+
+  // 🚀 FETCH REAL USER DATA
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/test-client-123`);
+        const token = localStorage.getItem("jobConciergeToken");
+        if (!token) throw new Error("No token found");
+
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        const userId = tokenPayload.sub;
+
+        // Fetch user info from your backend
+        const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/${userId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
         if (!response.ok) throw new Error("Wahala fetching settings data");
         
         const data = await response.json();
-        setUserData({
-          name: data.user.name,
-          email: `${data.user.name.split(' ')[0].toLowerCase()}@cyberpurview.com`, // Mocking email for now
-          planName: data.user.planName,
-          totalQuota: data.user.totalQuota,
-          remainingQuota: data.metrics.remainingQuota.value,
-          applicationsUsed: data.metrics.applicationsSubmitted.value
+        
+        // Populate the forms with the DB data
+        const names = (data.user?.name || data.name || "").split(" ");
+        setProfileForm({
+          firstName: names[0] || "",
+          lastName: names.slice(1).join(" ") || "",
+          email: data.user?.email || data.email || "",
+          phone: data.user?.phone || "+234 (0) 800 000 0000",
+          linkedin: data.user?.linkedin || `linkedin.com/in/${names[0]?.toLowerCase() || 'user'}`
         });
+
+        setBillingInfo({
+          planName: data.user?.planName || "launchpad",
+          totalQuota: data.user?.totalQuota || 0,
+          remainingQuota: data.metrics?.remainingQuota?.value || 0,
+        });
+
       } catch (error) {
         console.error("Failed to load settings:", error);
         setHasError(true);
-        
-        // GRACEFUL FALLBACK
-        setUserData({
-          name: "...",
-          email: "...",
-          planName: "launchpad",
-          totalQuota: 0,
-          remainingQuota: 0,
-          applicationsUsed: 0
-        });
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchUserData();
-  }, []);
+  }, [API_BASE_URL]);
+
+  // 🚀 HANDLE PROFILE UPDATE
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    try {
+      const token = localStorage.getItem("jobConciergeToken");
+      const tokenPayload = JSON.parse(atob(token!.split('.')[1]));
+      const userId = tokenPayload.sub;
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: `${profileForm.firstName} ${profileForm.lastName}`.trim(),
+          phone: profileForm.phone,
+          linkedin: profileForm.linkedin
+        })
+      });
+
+      if (!response.ok) throw new Error("Failed to update profile");
+      alert("Profile updated successfully, TonyStark!");
+    } catch (error) {
+      console.error(error);
+      alert("Failed to save profile changes. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 🚀 HANDLE PASSWORD UPDATE
+  const handleUpdatePassword = async () => {
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      return alert("New passwords do not match!");
+    }
+    
+    setIsSaving(true);
+    try {
+      const token = localStorage.getItem("jobConciergeToken");
+      // Note: You will need a dedicated endpoint for password changes
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword
+        })
+      });
+
+      if (!response.ok) throw new Error("Failed to change password");
+      alert("Password updated successfully!");
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    } catch (error) {
+      console.error(error);
+      alert("Wahala updating password. Check your current password.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -69,10 +167,6 @@ export function SettingsPage() {
       </div>
     );
   }
-
-  // Split name for First/Last inputs (assuming First Last format)
-  const firstName = userData.name !== "..." ? userData.name.split(" ")[0] : "...";
-  const lastName = userData.name !== "..." ? userData.name.split(" ").slice(1).join(" ") : "...";
 
   const settingsSections = [
     {
@@ -84,27 +178,49 @@ export function SettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>First Name</Label>
-              <Input defaultValue={firstName} disabled={hasError} />
+              <Input 
+                value={profileForm.firstName} 
+                onChange={(e) => setProfileForm({...profileForm, firstName: e.target.value})}
+                disabled={hasError || isSaving} 
+              />
             </div>
             <div>
               <Label>Last Name</Label>
-              <Input defaultValue={lastName} disabled={hasError} />
+              <Input 
+                value={profileForm.lastName} 
+                onChange={(e) => setProfileForm({...profileForm, lastName: e.target.value})}
+                disabled={hasError || isSaving} 
+              />
             </div>
           </div>
           <div>
             <Label>Email Address</Label>
-            <Input type="email" defaultValue={userData.email} disabled={hasError} />
+            {/* Email usually shouldn't be easily editable without verification, so we leave it disabled or read-only */}
+            <Input type="email" value={profileForm.email} disabled className="bg-gray-100 text-gray-500" />
           </div>
           <div>
             <Label>Phone Number</Label>
-            <Input type="tel" defaultValue="+234 (0) 800 000 0000" disabled={hasError} />
+            <Input 
+              type="tel" 
+              value={profileForm.phone} 
+              onChange={(e) => setProfileForm({...profileForm, phone: e.target.value})}
+              disabled={hasError || isSaving} 
+            />
           </div>
           <div>
             <Label>LinkedIn Profile</Label>
-            <Input defaultValue={`linkedin.com/in/${firstName.toLowerCase()}`} disabled={hasError} />
+            <Input 
+              value={profileForm.linkedin} 
+              onChange={(e) => setProfileForm({...profileForm, linkedin: e.target.value})}
+              disabled={hasError || isSaving} 
+            />
           </div>
-          <Button disabled={hasError} className="bg-gradient-to-r from-[#0275D8] to-[#00C2D1] text-white">
-            <Save className="w-4 h-4 mr-2" />
+          <Button 
+            onClick={handleSaveProfile}
+            disabled={hasError || isSaving} 
+            className="bg-gradient-to-r from-[#0275D8] to-[#00C2D1] text-white"
+          >
+            {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
             Save Changes
           </Button>
         </div>
@@ -121,17 +237,34 @@ export function SettingsPage() {
             <div className="space-y-3">
               <div>
                 <Label>Current Password</Label>
-                <Input type="password" disabled={hasError} />
+                <Input 
+                  type="password" 
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
+                  disabled={hasError || isSaving} 
+                />
               </div>
               <div>
                 <Label>New Password</Label>
-                <Input type="password" disabled={hasError} />
+                <Input 
+                  type="password" 
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
+                  disabled={hasError || isSaving} 
+                />
               </div>
               <div>
                 <Label>Confirm New Password</Label>
-                <Input type="password" disabled={hasError} />
+                <Input 
+                  type="password" 
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+                  disabled={hasError || isSaving} 
+                />
               </div>
-              <Button variant="outline" disabled={hasError}>Update Password</Button>
+              <Button onClick={handleUpdatePassword} variant="outline" disabled={hasError || isSaving || !passwordForm.newPassword}>
+                {isSaving ? "Updating..." : "Update Password"}
+              </Button>
             </div>
           </div>
           <Separator />
@@ -145,29 +278,10 @@ export function SettingsPage() {
               <Switch disabled={hasError} />
             </div>
           </div>
-          <Separator />
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-4">Privacy</h4>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">Profile Visibility</p>
-                  <p className="text-sm text-gray-600">Allow recruiters to find you</p>
-                </div>
-                <Switch defaultChecked disabled={hasError} />
-              </div>
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">Share Analytics</p>
-                  <p className="text-sm text-gray-600">Help improve our service</p>
-                </div>
-                <Switch defaultChecked disabled={hasError} />
-              </div>
-            </div>
-          </div>
         </div>
       ),
     },
+    // ... Notifications array remains the same ...
     {
       id: "notifications",
       title: "Notifications",
@@ -181,8 +295,6 @@ export function SettingsPage() {
                 { label: "Application Updates", desc: "Get notified when applications are submitted" },
                 { label: "Interview Reminders", desc: "Receive reminders before interviews" },
                 { label: "Resume Optimizations", desc: "Know when your resumes are ready" },
-                { label: "Weekly Progress Report", desc: "Summary of your job search activity" },
-                { label: "New Opportunities", desc: "Matching job recommendations" },
               ].map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div>
@@ -190,24 +302,6 @@ export function SettingsPage() {
                     <p className="text-sm text-gray-600">{item.desc}</p>
                   </div>
                   <Switch defaultChecked disabled={hasError} />
-                </div>
-              ))}
-            </div>
-          </div>
-          <Separator />
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-4">Push Notifications</h4>
-            <div className="space-y-3">
-              {[
-                { label: "Urgent Updates", desc: "Critical application updates" },
-                { label: "Messages", desc: "New messages from your strategist" },
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">{item.label}</p>
-                    <p className="text-sm text-gray-600">{item.desc}</p>
-                  </div>
-                  <Switch defaultChecked={idx === 0} disabled={hasError} />
                 </div>
               ))}
             </div>
@@ -226,10 +320,13 @@ export function SettingsPage() {
             <div className="bg-gradient-to-br from-[#0275D8]/10 to-[#00C2D1]/10 rounded-xl p-6 border border-[#0275D8]/20">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-xl font-bold text-[#0A2342] mb-2 capitalize">Career {userData.planName}</h3>
+                  <h3 className="text-xl font-bold text-[#0A2342] mb-2 capitalize">Career {billingInfo.planName}</h3>
                   <p className="text-sm text-gray-600">Full-service career acceleration</p>
                 </div>
-                <PlanBadge plan={userData.planName.toLowerCase() as any} />
+                {/* Fallback badge if PlanBadge component isn't strictly typed */}
+                <div className="px-3 py-1 bg-[#0275D8] text-white text-xs font-bold rounded-full uppercase tracking-wide">
+                  {billingInfo.planName}
+                </div>
               </div>
               <div className="space-y-2 mb-4">
                 <div className="flex justify-between text-sm">
@@ -237,71 +334,13 @@ export function SettingsPage() {
                   <span className="font-bold text-[#0A2342]">$999/month</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Next Billing Date:</span>
-                  <span className="text-gray-900">March 1, 2026</span>
-                </div>
-                <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Applications Remaining:</span>
-                  <span className="text-green-600 font-semibold">{userData.remainingQuota} / {userData.totalQuota}</span>
+                  <span className="text-green-600 font-semibold">{billingInfo.remainingQuota} / {billingInfo.totalQuota}</span>
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" disabled={hasError}>
-                  Change Plan
-                </Button>
-                <Button variant="outline" className="flex-1 text-red-600 border-red-200 hover:bg-red-50" disabled={hasError}>
-                  Cancel Subscription
-                </Button>
+                <Button variant="outline" className="flex-1" disabled={hasError}>Upgrade Plan</Button>
               </div>
-            </div>
-          </div>
-          <Separator />
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-4">Payment Method</h4>
-            <div className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-8 bg-gradient-to-r from-blue-600 to-blue-400 rounded flex items-center justify-center">
-                  <CreditCard className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">•••• •••• •••• 4242</p>
-                  <p className="text-sm text-gray-600">Expires 12/2027</p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm" disabled={hasError}>
-                Update
-              </Button>
-            </div>
-          </div>
-          <Separator />
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-4">Billing History</h4>
-            <div className="space-y-2">
-              {[
-                { date: "Feb 1, 2026", amount: "$999.00", status: "Paid" },
-                { date: "Jan 1, 2026", amount: "$999.00", status: "Paid" },
-                { date: "Dec 1, 2025", amount: "$999.00", status: "Paid" },
-              ].map((invoice, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="text-sm">
-                      <p className="font-medium text-gray-900">{invoice.date}</p>
-                      <p className="text-gray-600">{invoice.amount}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">
-                      {invoice.status}
-                    </span>
-                    <Button variant="ghost" size="sm" disabled={hasError}>
-                      Download
-                    </Button>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
         </div>
@@ -321,60 +360,8 @@ export function SettingsPage() {
                 <Input defaultValue="Senior Software Engineer, Full Stack Developer" disabled={hasError} />
               </div>
               <div>
-                <Label>Preferred Locations</Label>
-                <Input defaultValue="San Francisco, Remote, New York" disabled={hasError} />
-              </div>
-              <div>
                 <Label>Minimum Salary (USD)</Label>
                 <Input type="number" defaultValue="150000" disabled={hasError} />
-              </div>
-              <div>
-                <Label>Industries</Label>
-                <Input defaultValue="Technology, Finance, Healthcare" disabled={hasError} />
-              </div>
-            </div>
-          </div>
-          <Separator />
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-4">Application Settings</h4>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">Auto-Apply to Matches</p>
-                  <p className="text-sm text-gray-600">Automatically apply to highly matched jobs</p>
-                </div>
-                <Switch defaultChecked disabled={hasError} />
-              </div>
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">Resume Auto-Optimization</p>
-                  <p className="text-sm text-gray-600">Optimize resumes without manual approval</p>
-                </div>
-                <Switch disabled={hasError} />
-              </div>
-            </div>
-          </div>
-          <Separator />
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-4">Language & Region</h4>
-            <div className="space-y-4">
-              <div>
-                <Label>Language</Label>
-                <select disabled={hasError} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0275D8]">
-                  <option>English (US)</option>
-                  <option>English (UK)</option>
-                  <option>Spanish</option>
-                  <option>French</option>
-                </select>
-              </div>
-              <div>
-                <Label>Timezone</Label>
-                <select disabled={hasError} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0275D8]">
-                  <option>Pacific Time (PT)</option>
-                  <option>Mountain Time (MT)</option>
-                  <option>Central Time (CT)</option>
-                  <option>Eastern Time (ET)</option>
-                </select>
               </div>
             </div>
           </div>
@@ -389,7 +376,6 @@ export function SettingsPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
-      {/* Offline Warning Banner */}
       {hasError && (
         <div className="mb-6 bg-orange-50 border border-orange-200 text-orange-800 px-4 py-3 rounded-lg flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-orange-500" />
@@ -397,13 +383,11 @@ export function SettingsPage() {
         </div>
       )}
 
-      {/* Header */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
         <h1 className="text-3xl font-bold text-[#0A2342] mb-2">Settings</h1>
         <p className="text-gray-600">Manage your account preferences and configuration</p>
       </motion.div>
 
-      {/* Settings Sections */}
       <div className="space-y-6">
         {settingsSections.map((section, idx) => {
           const Icon = section.icon;
